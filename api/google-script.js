@@ -9,76 +9,61 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // URL de tu Google Apps Script (actualizada con tu nueva implementación)
-  const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx8U_IWUo38fPGfNrtQ84wDQDTU9JLwbL7RYHpx4wbCDu4IeEAxtEDJSYiHg_Q7Z3seMw/exec";
+  const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxnIXtrzEqGH4zBWcse3IHkNbhEDxR-0ULPIGQpLjXRaXH1pV0Gzd16W0kOXNEeNQq-2Q/exec";
 
   try {
-    let url = GOOGLE_SCRIPT_URL;
-    let options = { method: req.method };
-
     // GET para login
     if (req.method === 'GET') {
+      let url = GOOGLE_SCRIPT_URL;
       if (req.query.email) {
         url += `?email=${encodeURIComponent(req.query.email)}`;
       }
-      console.log('📡 Consultando Google Apps Script (GET):', url);
+      const response = await fetch(url);
+      const data = await response.json();
+      return res.status(200).json(data);
     }
 
     // POST para enviar formulario
     if (req.method === 'POST') {
+      // Obtener el body
+      const body = req.body;
+      
+      // Crear FormData
       const formData = new URLSearchParams();
-
-      // Agregar action al formData
-      formData.append('action', req.body.action || 'submit');
-
-      // Agregar todos los campos del body
-      for (const [key, value] of Object.entries(req.body)) {
-        if (key !== 'action') {
-          formData.append(key, value);
-        }
+      formData.append('action', 'submit');
+      formData.append('email', body.email || '');
+      formData.append('nombre', body.nombre || '');
+      formData.append('planestudio', body.planestudio || '');
+      formData.append('curso', body.curso || '');
+      formData.append('pead', body.pead || '');
+      formData.append('docente', body.docente || '');
+      formData.append('respuestas', body.respuestas || '');
+      
+      console.log('📤 Enviando:', formData.toString());
+      
+      const response = await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData.toString()
+      });
+      
+      const text = await response.text();
+      console.log('📥 Respuesta:', text);
+      
+      try {
+        const jsonData = JSON.parse(text);
+        return res.status(200).json(jsonData);
+      } catch (e) {
+        return res.status(200).json({ success: true, raw: text });
       }
-
-      options.headers = {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json'
-      };
-      options.body = formData.toString();
-
-      console.log('📤 Enviando datos a Google Apps Script (POST):', url);
     }
 
-    const response = await fetch(url, options);
-    const text = await response.text();
-
-    console.log('📥 Respuesta cruda de Google Script:', text.substring(0, 300));
-
-    // Intentar parsear como JSON
-    let jsonData;
-    try {
-      jsonData = JSON.parse(text);
-      console.log('✅ Respuesta JSON válida');
-    } catch (parseError) {
-      console.log('⚠️ La respuesta no es JSON válido, creando estructura de error');
-      // Si no es JSON, devolver un objeto de error
-      jsonData = {
-        success: false,
-        error: 'Respuesta inválida del servidor',
-        rawResponse: text.substring(0, 200)
-      };
-    }
-
-    // Devolver siempre una estructura JSON consistente
-    return res.status(200).json({
-      success: true,
-      data: jsonData
-    });
+    return res.status(405).json({ error: 'Método no permitido' });
 
   } catch (error) {
-    console.error('❌ Error en función serverless:', error);
-    return res.status(500).json({
-      success: false,
-      error: error.message,
-      details: 'Error al conectar con Google Apps Script'
-    });
+    console.error('❌ Error:', error);
+    return res.status(500).json({ success: false, error: error.message });
   }
 }
