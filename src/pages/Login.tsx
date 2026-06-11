@@ -8,8 +8,8 @@ interface Curso {
   pead: string;
   docente: string;
   completado: boolean;
+  planEstudio: string;
 }
-
 
 export default function Login() {
   const [nombreUsuario, setNombreUsuario] = useState('')
@@ -17,83 +17,82 @@ export default function Login() {
   const [error, setError] = useState('')
 
   const ingresar = async () => {
-  if (!nombreUsuario.trim()) {
-    setError('Ingresa tu usuario')
-    return
-  }
-
-  setLoading(true)
-  setError('')
-
-  try {
-    const emailCompleto = `${nombreUsuario}@uss.edu.pe`.toLowerCase()
-
-    // ✅ LLAMADA DIRECTA - SIN PROXY
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx8U_IWUo38fPGfNrtQ84wDQDTU9JLwbL7RYHpx4wbCDu4IeEAxtEDJSYiHg_Q7Z3seMw/exec";
-    const url = `${GOOGLE_SCRIPT_URL}?email=${encodeURIComponent(emailCompleto)}`;
-
-    console.log('📡 Llamando DIRECTAMENTE a Google Script:', url)
-    
-    const response = await fetch(url)
-    
-    console.log('📡 Status de respuesta:', response.status)
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-    }
-    
-    const data = await response.json()
-    console.log('📦 Respuesta de Google Script:', data)
-
-    // Verificar si la respuesta tiene error
-    if (data.error) {
-      setError(data.error)
-      setLoading(false)
+    if (!nombreUsuario.trim()) {
+      setError('Ingresa tu usuario')
       return
     }
 
-    // Verificar si hay cursos
-    if (data.cursos && data.cursos.length > 0) {
-      const pendientes = data.cursos.filter((curso: Curso) => !curso.completado)
+    setLoading(true)
+    setError('')
 
-      console.log(`📚 Cursos totales: ${data.cursos.length}`)
-      console.log(`✅ Cursos completados: ${data.cursos.length - pendientes.length}`)
-      console.log(`⏳ Cursos pendientes: ${pendientes.length}`)
+    try {
+      const emailCompleto = `${nombreUsuario}@uss.edu.pe`.toLowerCase()
 
-      if (pendientes.length === 0) {
-        setError('🎉 ¡Felicidades! Ya has respondido todas las encuestas.')
+      // 🔴 NUEVA URL ACTUALIZADA
+      const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwtNzsSrSjGH-iE134InsDX-DamBsxdTjLA3dAMhzW6H_5QcAzXsFLin1Qj4Bb6L25a/exec";
+      const url = `${GOOGLE_SCRIPT_URL}?email=${encodeURIComponent(emailCompleto)}`;
+
+      console.log('📡 Llamando a Google Script:', url)
+      
+      const response = await fetch(url)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      
+      const data = await response.json()
+      console.log('📦 Respuesta de Google Script:', data)
+
+      if (data.error) {
+        setError(data.error)
         setLoading(false)
         return
       }
 
-      // Guardar datos en localStorage
-      localStorage.setItem('eval_data', JSON.stringify({
-        email: emailCompleto,
-        cursos: data.cursos
-      }))
+      if (data.cursos && data.cursos.length > 0) {
+        // Verificar que planEstudio existe
+        console.log('📚 planEstudio del primer curso:', data.cursos[0]?.planEstudio);
 
-      console.log('💾 Datos guardados, redirigiendo...')
-      window.location.href = '/formulario'
-    } else {
-      setError('❌ Usuario no encontrado o sin cursos asignados')
-    }
+        const pendientes = data.cursos.filter((curso: Curso) => !curso.completado)
 
-  } catch (error: unknown) {
-    console.error('❌ Error:', error)
-    
-    if (error instanceof Error) {
-      if (error.message.includes('Failed to fetch')) {
-        setError('🔌 No se pudo conectar con el servidor. Verifica tu conexión a internet.')
+        if (pendientes.length === 0) {
+          setError('🎉 ¡Felicidades! Ya has respondido todas las encuestas.')
+          setLoading(false)
+          return
+        }
+
+        // Guardar datos en localStorage
+        const datosAGuardar = {
+          email: emailCompleto,
+          cursos: data.cursos
+        };
+        
+        localStorage.setItem('eval_data', JSON.stringify(datosAGuardar))
+        
+        console.log('💾 Datos guardados en localStorage:', datosAGuardar)
+        console.log('💾 planEstudio del primer curso guardado:', datosAGuardar.cursos[0].planEstudio)
+
+        window.location.href = '/formulario'
       } else {
-        setError(`⚠️ Error: ${error.message}`)
+        setError('❌ Usuario no encontrado o sin cursos asignados')
       }
-    } else {
-      setError('❌ Error desconocido. Intenta más tarde.')
+
+    } catch (error: unknown) {
+      console.error('❌ Error:', error)
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch')) {
+          setError('🔌 No se pudo conectar con el servidor. Verifica tu conexión a internet.')
+        } else {
+          setError(`⚠️ Error: ${error.message}`)
+        }
+      } else {
+        setError('❌ Error desconocido. Intenta más tarde.')
+      }
+    } finally {
+      setLoading(false)
     }
-  } finally {
-    setLoading(false)
   }
-}
 
   return (
     <div style={{
@@ -161,7 +160,7 @@ export default function Login() {
               fontSize: '16px',
               fontWeight: '500'
             }}>
-              2026 ABRIL
+              2026 JUNIO
             </div>
             <div style={{
               marginTop: '8px',
@@ -290,19 +289,6 @@ export default function Login() {
               }}>
                 <span style={{ fontSize: '20px' }}>⚠️</span>
                 <span style={{ whiteSpace: 'pre-line' }}>{error}</span>
-              </div>
-            )}
-
-            {window.location.hostname === 'localhost' && (
-              <div style={{
-                marginTop: '16px',
-                padding: '12px',
-                backgroundColor: '#e8f0fe',
-                color: '#1a73e8',
-                borderRadius: '8px',
-                border: '1px solid #dadce0',
-                fontSize: '13px'
-              }}>
               </div>
             )}
           </div>
