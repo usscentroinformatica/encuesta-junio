@@ -29,7 +29,7 @@ export default function Login() {
       const emailCompleto = `${nombreUsuario}@uss.edu.pe`.toLowerCase()
 
       // 🔴 NUEVA URL ACTUALIZADA
-      const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwtNzsSrSjGH-iE134InsDX-DamBsxdTjLA3dAMhzW6H_5QcAzXsFLin1Qj4Bb6L25a/exec";
+      const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyrIXHiC-qy-lVfAJ8xJKxJT6t_N53AY0ei9hzGgcn0Dp0645bUgffqPniNF7pJ1O0mtA/exec";
       const url = `${GOOGLE_SCRIPT_URL}?email=${encodeURIComponent(emailCompleto)}`;
 
       console.log('📡 Llamando a Google Script:', url)
