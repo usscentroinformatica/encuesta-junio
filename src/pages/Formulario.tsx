@@ -192,18 +192,21 @@ const UserIcon = () => (
   </svg>
 )
 
-const DocumentIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5a2290" strokeWidth="2.5">
-    <path d="M14 2 H6 A2 2 0 0 0 4 4 V20 A2 2 0 0 0 6 22 H18 A2 2 0 0 0 20 20 V8 Z" />
-    <polyline points="14 2 14 8 20 8" />
-  </svg>
-)
 
 const TeacherIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#63ed12" strokeWidth="2.5">
     <path d="M12 14l9-5-9-5-9 5 9 5z" />
     <path d="M12 14v7" />
     <path d="M3 7v11l9 5 9-5V7" />
+  </svg>
+)
+
+const PlanIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5a2290" strokeWidth="2.5">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+    <line x1="16" y1="2" x2="16" y2="6" />
+    <line x1="8" y1="2" x2="8" y2="6" />
+    <line x1="3" y1="10" x2="21" y2="10" />
   </svg>
 )
 
@@ -247,27 +250,29 @@ export default function Formulario() {
   const [error, setError] = useState('')
   const [exitoModal, setExitoModal] = useState(false)
 
-  
-
   useEffect(() => {
     const saved = localStorage.getItem('eval_data')
+    console.log('📦 Datos desde localStorage:', saved);
+    
     if (!saved) {
       window.location.href = '/';
       return
     }
     const parsed = JSON.parse(saved)
     
+    console.log('📊 Datos parseados:', parsed);
+    console.log('📚 Primer curso:', parsed.cursos[0]);
+    console.log('📖 planEstudio del backend:', parsed.cursos[0]?.planEstudio);
+    
     // Filtrar solo cursos pendientes (no completados)
     const cursosPendientes = parsed.cursos.filter((c: any) => !c.completado)
     
     if (cursosPendientes.length === 0) {
-      // Si no hay cursos pendientes, redirigir con mensaje
       alert('Ya has completado todas las encuestas disponibles')
       window.location.href = '/';
       return
     }
     
-    // Actualizar datos solo con cursos pendientes
     setDatos({...parsed, cursos: cursosPendientes})
     setCursoSel(cursosPendientes[0].curso)
   }, [])
@@ -284,6 +289,10 @@ export default function Formulario() {
   }
 
   const info = datos.cursos.find((c: any) => c.curso === cursoSel) || datos.cursos[0]
+  
+  // Log para verificar en render
+  console.log('🔍 info.planEstudio en render:', info?.planEstudio);
+  
   const progreso = respuestas.filter(r => r !== '').length + (estrellasSeleccionadas > 0 ? 1 : 0)
   const porcentaje = Math.round((progreso / TOTAL_PREGUNTAS) * 100)
 
@@ -312,17 +321,17 @@ export default function Formulario() {
         action: 'submit',
         email: datos.email,
         nombre: info.nombre,
+        planestudio: info.planEstudio || '',
         curso: cursoLimpio,
         pead: info.pead,
         docente: info.docente,
         respuestas: respuestasFinales.join('|||'),
-        cursoCompleto: info.curso, // Enviar el curso completo para identificarlo
-        completado: true // Marcar como completado
+        cursoCompleto: info.curso,
+        completado: true
       };
 
       console.log('Enviando datos:', datosEnvio);
 
-      // Enviar siempre como application/x-www-form-urlencoded a /api/google-script
       const formData = new URLSearchParams();
       Object.entries(datosEnvio).forEach(([k, v]) => formData.append(k, v as string));
 
@@ -336,40 +345,29 @@ export default function Formulario() {
       console.log('Respuesta del servidor:', result);
 
       if (result.success) {
-        // Marcar el curso actual como completado en localStorage
         const datosActualizados = {...datos};
         const cursoIndex = datosActualizados.cursos.findIndex((c: any) => c.curso === cursoSel);
         if (cursoIndex !== -1) {
           datosActualizados.cursos[cursoIndex].completado = true;
         }
         
-        // Verificar si quedan cursos pendientes
         const cursosPendientes = datosActualizados.cursos.filter((c: any) => !c.completado);
         
         if (cursosPendientes.length > 0) {
-          // Actualizar localStorage con el curso marcado como completado
           localStorage.setItem('eval_data', JSON.stringify(datosActualizados));
-          
-          // Mostrar mensaje de éxito y redirigir al formulario para el siguiente curso
           setExitoModal(true);
-          
-          // Redirigir después de 3 segundos al formulario (se recargará con el siguiente curso pendiente)
           setTimeout(() => {
             window.location.href = '/formulario';
           }, 3000);
         } else {
-          // Ya no quedan cursos pendientes
           setExitoModal(true);
           localStorage.removeItem('eval_data');
-          
-          // Guardar copia local por si acaso
           const respuestasGuardadas = {
             ...datosEnvio,
             fecha: new Date().toISOString(),
             sincronizado: true
           };
           localStorage.setItem('ultima_encuesta', JSON.stringify(respuestasGuardadas));
-          
           setTimeout(() => window.location.href = '/', 5000);
         }
       } else {
@@ -386,7 +384,6 @@ export default function Formulario() {
           pendiente: true
         };
         localStorage.setItem('encuesta_pendiente', JSON.stringify(respuestasPendientes));
-
         setError('Error al enviar. Tus respuestas se guardaron localmente y se enviarán automáticamente cuando se restablezca la conexión.');
       } else {
         setError('Error al enviar. Intenta nuevamente.');
@@ -401,9 +398,8 @@ export default function Formulario() {
   };
 
   if (exitoModal) {
-    // Verificar si quedan cursos pendientes para mostrar mensaje diferente
     const cursosPendientes = datos?.cursos.filter((c: any) => !c.completado) || [];
-    const hayMasCursos = cursosPendientes.length > 1; // >1 porque el actual ya se completó
+    const hayMasCursos = cursosPendientes.length > 1;
     
     return (
       <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
@@ -447,12 +443,11 @@ export default function Formulario() {
         <div style={{ width: '100%', maxWidth: '680px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 6px rgba(32,33,36,0.28)', overflow: 'hidden' }}>
           <div style={{ backgroundColor: '#5a2290', color: 'white', padding: '32px 48px', textAlign: 'center' }}>
             <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '400' }}>ENCUESTA DE SATISFACCIÓN DOCENTE</h1>
-            <div style={{ marginTop: '12px', fontSize: '16px' }}>2026 ABRIL</div>
+            <div style={{ marginTop: '12px', fontSize: '16px' }}>2026 JUNIO</div>
             <div style={{ marginTop: '8px', fontSize: '14px', opacity: 0.9 }}>Tu participación es anónima y confidencial.</div>
           </div>
 
           <div style={{ padding: '32px 48px' }}>
-            {/* Banner de cursos pendientes */}
             {datos.cursos.length > 1 && (
               <div style={{
                 marginBottom: '20px',
@@ -490,6 +485,7 @@ export default function Formulario() {
               </div>
             </div>
 
+            {/* INFORMACIÓN DEL ESTUDIANTE - ORDEN CORRECTO */}
             <div style={{
               background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
               border: '1px solid #e0e0e0',
@@ -499,10 +495,10 @@ export default function Formulario() {
               boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
             }}>
               <h3 style={{ margin: '0 0 20px', fontSize: '18px', color: '#5a2290', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                Información del estudiante
+                📋 Información del Estudiante
               </h3>
 
-              {datos.cursos.length > 1 ? (
+              {datos.cursos.length > 1 && (
                 <div style={{ marginBottom: '20px' }}>
                   <label style={{ display: 'block', fontSize: '14px', color: '#202124', marginBottom: '8px', fontWeight: '500' }}>
                     Selecciona el curso a encuestar
@@ -541,47 +537,69 @@ export default function Formulario() {
                       <ChevronDown />
                     </div>
                   </div>
-                  <div style={{
-                    marginTop: '8px',
-                    fontSize: '12px',
-                    color: '#5f6368'
-                  }}>
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: '#5f6368' }}>
                     ✅ = Completado | 📝 = Pendiente
                   </div>
                 </div>
-              ) : null}
+              )}
 
               <div style={{ display: 'grid', gap: '16px', fontSize: '15px' }}>
+                {/* 1. ESTUDIANTE */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px', backgroundColor: '#e8f5e1', borderRadius: '10px' }}>
+                  <UserIcon />
+                  <div>
+                    <strong style={{ color: '#63ed12' }}>Estudiante:</strong>
+                    <span style={{ marginLeft: '8px', color: '#202124' }}>{info.nombre}</span>
+                  </div>
+                </div>
+
+                {/* 2. PLAN DE ESTUDIO - CORREGIDO */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px', backgroundColor: '#f0f7ff', borderRadius: '10px' }}>
+                  <PlanIcon />
+                  <div>
+                    <strong style={{ color: '#5a2290' }}>Plan de Estudio:</strong>
+                    <span style={{ marginLeft: '8px', color: '#202124', fontWeight: '500' }}>
+                      {info?.planEstudio && info.planEstudio !== '' && info.planEstudio !== 'N/D' 
+                        ? info.planEstudio 
+                        : 'No especificado'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3. CURSO */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px', backgroundColor: '#f0f7ff', borderRadius: '10px' }}>
                   <BookIcon />
                   <div>
                     <strong style={{ color: '#5a2290' }}>Curso:</strong>
-                    <span style={{ marginLeft: '8px', color: '#202124' }}>
-                      {limpiarNombreCurso(info.curso)}
-                    </span>
+                    <span style={{ marginLeft: '8px', color: '#202124' }}>{limpiarNombreCurso(info.curso)}</span>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px', backgroundColor: '#e8f5e1', borderRadius: '10px' }}>
-                  <UserIcon />
-                  <div>
-                    <strong style={{ color: '#63ed12' }}>Estudiante:</strong> <span style={{ marginLeft: '8px', color: '#202124' }}>{info.nombre}</span>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px', backgroundColor: '#f0f7ff', borderRadius: '10px' }}>
-                  <DocumentIcon />
-                  <div>
-                    <strong style={{ color: '#5a2290' }}>PEAD:</strong> <span style={{ marginLeft: '8px', color: '#202124' }}>{info.pead}</span>
-                  </div>
-                </div>
+
+                {/* 4. PEAD */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px', backgroundColor: '#e8f5e1', borderRadius: '10px' }}>
                   <TeacherIcon />
                   <div>
-                    <strong style={{ color: '#63ed12' }}>Docente:</strong> <span style={{ marginLeft: '8px', color: '#202124' }}>{info.docente}</span>
+                    <strong style={{ color: '#63ed12' }}>PEAD:</strong>
+                    <span style={{ marginLeft: '8px', color: '#202124' }}>{info.pead}</span>
+                  </div>
+                </div>
+
+                {/* 5. DOCENTE */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px', backgroundColor: '#f0f7ff', borderRadius: '10px' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5a2290" strokeWidth="2.5">
+                    <path d="M12 14l9-5-9-5-9 5 9 5z" />
+                    <path d="M12 14v7" />
+                    <path d="M3 7v11l9 5 9-5V7" />
+                  </svg>
+                  <div>
+                    <strong style={{ color: '#5a2290' }}>Docente:</strong>
+                    <span style={{ marginLeft: '8px', color: '#202124' }}>{info.docente}</span>
                   </div>
                 </div>
               </div>
             </div>
 
+            {/* PREGUNTAS 1-4 */}
             {preguntas.slice(0, 4).map((p, i) => (
               <div key={i} style={{
                 marginBottom: '32px', padding: '24px',
@@ -632,6 +650,7 @@ export default function Formulario() {
               </div>
             ))}
 
+            {/* PREGUNTA 5 - CORREOS */}
             <div style={{
               marginBottom: '32px', padding: '24px',
               border: respuestas[4] ? '3px solid #63ed12' : '1px solid #dadce0',
@@ -680,6 +699,7 @@ export default function Formulario() {
               </div>
             </div>
 
+            {/* PREGUNTA 6 - ESTRELLAS */}
             <div style={{
               marginBottom: '32px', padding: '24px',
               border: estrellasSeleccionadas > 0 ? '3px solid #FFD700' : '1px solid #dadce0',
@@ -710,6 +730,7 @@ export default function Formulario() {
               />
             </div>
 
+            {/* BOTONES */}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '50px', flexWrap: 'wrap', gap: '16px' }}>
               <button onClick={() => {
                 if (window.confirm('¿Limpiar todas las respuestas?')) {
